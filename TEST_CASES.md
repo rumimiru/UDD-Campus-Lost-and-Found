@@ -27,4 +27,4 @@ The app is a browser-only prototype. Run it from a local web server or open `ind
 - Student and Teacher registration, required-field errors, invalid login, valid login/logout, and session restoration were exercised in the browser.
 - Lost and Found reports, type-dependent location labels, empty-form errors, live search, and Lost/Found/Unclaimed filters were exercised.
 - Claim approval resolves and deletes the item and related requests; rejection returns an item to Unclaimed when no other requests are pending.
-- On first launch, the dashboard is seeded with the Lost joke example and its demo poster; loading sample data fills out the eight-report set without duplicates. Reset clears the saved records and session.
+- On first launch, the dashboard is seeded with an inside joke(Kaiser_Joke_TestLost) example and its demo poster; loading sample data fills out the eight-report set without duplicates. Reset clears the saved records and session.
