@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Campus Lost and Found & Item Claim Portal prototype" />
+  <title>UDD | Campus Lost &amp; Found</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="landing-page" id="landingPage">
+    <header class="landing-header">
+      <a class="landing-brand" href="#landingHome" aria-label="UDD home"><img class="brand-logo" src="assets/UDD_LOGO.png" alt="" /><span>UDD</span></a>
+      <nav class="landing-nav" aria-label="Landing navigation">
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </header>
+    <main class="landing-main" id="landingHome">
+      <section class="landing-hero">
+        <span class="eyebrow">Universidad De Dagupan</span>
+        <h1>Lost something?<br><span>Find your way back to it.</span></h1>
+        <p>Report lost and found items, connect with their owners, and help campus belongings find their way home.</p>
+        <div class="landing-actions">
+          <button type="button" class="primary-button" data-landing-auth="login">Log in</button>
+          <button type="button" class="secondary-button" data-landing-auth="register">Create an account</button>
+        </div>
+        <button type="button" class="guest-link" id="guestBtn">Continue as a guest <span>→</span></button>
+        <div class="landing-auth hidden" id="landingAuth"></div>
+      </section>
+      <section class="landing-info" id="about">
+        <div><span class="info-icon"><img src="assets/magnifying-glass.png" alt="" /></span><strong>Search reports</strong><p>Browse campus reports and filter by Lost or Found.</p></div>
+        <div><span class="info-icon">↗</span><strong>Help return items</strong><p>Send a claim or found-it request to the original poster.</p></div>
+        <div id="contact"><span class="info-icon">✉</span><strong>Campus support</strong><p>For portal help, contact your campus Lost &amp; Found office.</p></div>
+      </section>
+    </main>
+    <footer class="landing-footer">UDD · Campus Lost and Found &amp; Item Claim Portal</footer>
+  </div>
+
+  <div class="app-shell hidden" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="UDD home">
+        <img class="brand-logo" src="assets/UDD_LOGO.png" alt="" /><span>UDD</span>
+      </a>
+      <nav class="side-nav" id="navLinks" aria-label="Main navigation">
+        <button class="nav-link active" data-view="dashboard"><span class="nav-icon"><img src="assets/home.png" alt="" /></span>Dashboard</button>
+        <p class="nav-label">CAMPUS PORTAL</p>
+        <button class="nav-link" data-view="items"><span class="nav-icon">▤</span>Lost &amp; Found Items</button>
+        <button class="nav-link" data-view="notifications"><span class="nav-icon"><img src="assets/notification.png" alt="" /></span>Notifications</button>
+        <p class="nav-label">RESOURCES</p>
+        <button class="nav-link" data-view="account"><span class="nav-icon">♙</span>My Account</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-mini"><div class="avatar" id="sideAvatar">FN</div><div><strong id="sideName">Guest Student</strong><small id="sideRole">Student account</small></div></div>
+        <button class="text-button" id="logoutBtn">Log out ↗</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menuBtn" aria-label="Toggle menu">☰</button>
+        <div class="top-actions">
+          <button class="icon-button" id="themeBtn" aria-label="Toggle theme">☼</button>
+          <div class="notification-wrap">
+            <button class="icon-button notification-trigger" id="notificationBtn" aria-label="Notifications"><img class="toolbar-icon" src="assets/notification.png" alt="" /><span class="notification-dot" id="notificationDot">3</span></button>
+            <div class="notification-panel hidden" id="notificationPanel">
+              <div class="panel-heading"><strong>Notifications</strong><button class="text-button" id="markReadBtn">Mark read</button></div>
+              <div id="notificationList"></div>
+            </div>
+          </div>
+          <div class="avatar top-avatar guest-avatar" id="topAvatar" aria-label="Guest profile"><img src="assets/user.png" alt="Guest profile" /></div>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="welcome-row">
+          <div>
+            <h1 id="greeting">Welcome, Guest Student</h1>
+            <span class="role-pill" id="rolePill">Student</span>
+            <p class="date-line" id="todayLine"></p>
+          </div>
+          <div class="term-tools">
+            <button class="secondary-button" id="sampleBtn">＋ Load Sample Data</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <article class="stat-card"><div class="stat-label">TOTAL REPORTS</div><div class="stat-value" id="totalReports">0</div><div class="stat-note">All listed items</div><span class="stat-icon">▤</span></article>
+          <article class="stat-card"><div class="stat-label">LOST ITEMS</div><div class="stat-value" id="lostReports">0</div><div class="stat-note">Looking for owners</div><span class="stat-icon">⌕</span></article>
+          <article class="stat-card"><div class="stat-label">FOUND ITEMS</div><div class="stat-value" id="foundReports">0</div><div class="stat-note">Waiting to be claimed</div><span class="stat-icon">✓</span></article>
+          <article class="stat-card"><div class="stat-label">RESOLVED</div><div class="stat-value" id="resolvedReports">0</div><div class="stat-note">Successfully returned</div><span class="stat-icon">♧</span></article>
+        </div>
+
+        <div class="section-toolbar">
+          <div><h2 id="sectionTitle">Campus Lost &amp; Found</h2><p class="section-subtitle" id="sectionSubtitle">Find an item or help return something to its owner.</p></div>
+          <button class="primary-button" id="reportBtn">＋ Report an Item</button>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="list-panel">
+            <div class="filter-bar" id="filterBar">
+              <label class="search-box"><span><img src="assets/magnifying-glass.png" alt="" /></span><input id="searchInput" type="search" placeholder="Search item, category, or location..." /></label>
+              <select id="typeFilter" aria-label="Filter by type"><option value="All">All items</option><option value="Lost">Lost</option><option value="Found">Found</option></select>
+              <select id="statusFilter" aria-label="Filter by status"><option value="All">All statuses</option><option value="Unclaimed">Unclaimed</option><option value="Pending">Pending</option><option value="Claimed">Claimed</option></select>
+            </div>
+            <div class="items-heading"><strong>Recent item reports</strong><span id="visibleCount">0 items</span></div>
+            <div class="item-grid" id="itemGrid"></div>
+            <div class="empty-state hidden" id="emptyState"><div class="empty-icon">⌕</div><strong>No matching items found</strong><p>Try another keyword or change your filters.</p></div>
+          </section>
+
+        </div>
+        <footer class="page-footer">UDD · Campus Lost and Found &amp; Item Claim Portal <span>Prototype · Week 2</span></footer>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header"><div><span class="eyebrow">CAMPUS LOST &amp; FOUND</span><h2 id="modalTitle">Report an Item</h2><p id="modalDescription">Share the details so the campus community can help.</p></div><button class="close-button" id="closeModal" aria-label="Close">×</button></div>
+      <div id="modalBody"></div>
+    </section>
+  </div>
+  <div class="toast hidden" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
