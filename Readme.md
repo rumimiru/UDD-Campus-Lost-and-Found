@@ -1,10 +1,10 @@
-# 🎒 Campus Lost and Found Portal
+# Campus Lost and Found Portal
 
 A simple web application that helps students and teachers report, search, and claim lost or found items around campus.
 
 Instead of relying on scattered social media posts or physical logbooks, users can access one organized platform to find missing belongings and contact the people who reported them.
 
-## ✨ Features
+## Features
 
 - **Account System** – Register, log in, and log out using student or teacher accounts.
 - **Report Items** – Post lost or found items with descriptions, categories, locations, dates, photos, and contact details.
@@ -15,7 +15,7 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 - **Local Storage** – Keep accounts, item records, and notifications saved even after refreshing the page.
 - **Sample Data & Reset** – Load sample records or reset the application for testing.
 
-## 👥 Target Users
+## Target Users
 
 | User | Purpose |
 |---|---|
@@ -39,7 +39,7 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 6. Wait for the item poster to review your request.
 7. Receive a notification when the request is approved or rejected.
 
-## 🚀 Getting Started
+## Getting Started
 
 1. Download or clone this repository.
 2. Open the project folder.
@@ -47,7 +47,7 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 4. Register an account or use the sample data if available.
 5. Start reporting and searching for items!
 
-## ⚠️ Limitations
+## Limitations
 
 - No backend or online database.
 - Data is saved only in the current browser using localStorage.
@@ -57,7 +57,7 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 - Proof of ownership is reviewed manually.
 - Login is intended for demonstration purposes and is not secured for real-world use.
 
-## 🎯 Project Goal
+## Project Goal
 
 To provide students and teachers with an easier and more organized way to report, find, and claim lost belongings within the campus.
 
