@@ -62,6 +62,9 @@ body.light{--navy:#edf3f8;--sidebar:#dce8f2;--topbar:#e6eef5;--panel:#fff;--pane
 .stat-card{cursor:pointer;transition:transform .18s,border-color .18s}
 .stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px);border-color:rgba(131,185,238,.45);outline:none}
 .stat-card.active{border-color:#83b9ee;box-shadow:inset 0 0 0 1px rgba(131,185,238,.45)}
+.status-available{background:rgba(24,168,121,.16);color:#5bd9ae}
+.status-returned{background:rgba(131,185,238,.16);color:#9bcaff}
+.modal .item-detail-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
 .item-photo img{transition:transform .25s}
 .item-card:hover .item-photo img{transform:scale(1.025)}
 body.light .landing-stats article{background:rgba(255,255,255,.8)}
@@ -194,6 +197,25 @@ body{font-size:16px}
   box-sizing:border-box;
 }
 .modal .item-detail-actions>button:only-child{grid-column:1/-1}
+.confirm-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;background:rgba(3,12,22,.58)}
+.confirm-dialog{width:min(560px,calc(100vw - 40px));background:#172c42;color:#f4f7fb;border:1px solid rgba(179,202,224,.18);border-radius:12px;box-shadow:0 16px 55px rgba(0,0,0,.32);overflow:hidden}
+.confirm-header{height:62px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(179,202,224,.13)}
+.confirm-header strong{font-size:16px}
+.confirm-close{width:38px;height:38px;border:0;background:transparent;color:#c5d6e6;font-size:28px;line-height:1}
+.confirm-message{min-height:86px;margin:0;padding:28px 18px 22px;color:#d8e5f2;font-size:16px;line-height:1.45}
+.confirm-actions{display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid rgba(179,202,224,.13)}
+.confirm-ok,.confirm-cancel{height:42px;min-width:105px;border-radius:5px;font-size:15px;font-weight:600}
+.confirm-ok{border:1px solid #376d9f;background:#2b5680;color:#fff}
+.confirm-cancel{border:1px solid #405971;background:#203950;color:#d5e3f0}
+.confirm-ok:hover{background:#376d9f}
+.confirm-cancel:hover{background:#263f59}
+body.light .confirm-dialog{background:#f4f8fb;color:#183047;border-color:#c4d4e2}
+body.light .confirm-header{border-bottom-color:#d8e2ec}
+body.light .confirm-close{color:#29445d}
+body.light .confirm-message{color:#29445d}
+body.light .confirm-actions{border-top-color:#d8e2ec}
+body.light .confirm-ok{border-color:#2d5d8b;background:#2d5d8b;color:#fff}
+body.light .confirm-cancel{border-color:#c4d4e2;background:#e5eef6;color:#29445d}
 
 @media(max-width:620px){
   .landing-scroll-button{width:38px;height:38px}

@@ -10,6 +10,7 @@ let activeView = "dashboard";
 let toastTimer = null;
 let previewMode = false;
 let activeStatFilter = "All";
+let confirmAction = null;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -82,7 +83,13 @@ function loadFromStorage() {
     const storedData = localStorage.getItem(STORAGE_KEY);
     const saved = JSON.parse(storedData || "{}");
     state.users = Array.isArray(saved.users) ? saved.users : [];
-    state.items = Array.isArray(saved.items) ? saved.items : [];
+    state.items = (Array.isArray(saved.items) ? saved.items : [])
+      .filter(item => item.type === "Found" || item.status === "Available" || item.status === "Returned")
+      .map(item => ({
+        ...item,
+        type: "Found",
+        status: item.status === "Returned" || item.status === "Claimed" ? "Returned" : "Available"
+      }));
     state.requests = Array.isArray(saved.requests) ? saved.requests : [];
     state.notifications = Array.isArray(saved.notifications) ? saved.notifications : [];
     let saoUser = state.users.find(user => user.username === "sao.admin");
@@ -129,21 +136,6 @@ function seedJokeExample() {
     role: "Student"
   };
   state.users.push(sampleUser);
-  state.items.push({
-    id: makeId(),
-    type: "Lost",
-    category: "Single",
-    name: "John Kaiser Ocoma",
-    location: "Campus",
-    date: new Date().toISOString().slice(0, 10),
-    description: "Masarap, Pogi, Mayaman",
-    photoUrl: "assets/Kaiser_LOST_TestJoke.jpg",
-    contact: sampleEmail,
-    ownerId: saoUser.id,
-    ownerName: saoUser.name,
-    status: "Unclaimed",
-    createdAt: new Date().toISOString()
-  });
   saveData();
 }
 
@@ -210,7 +202,7 @@ function updateUserInterface() {
   const accountLink = $('[data-view="account"]');
   if (accountLink) accountLink.innerHTML = `<span class="nav-icon">♙</span>${previewMode ? "My Account" : "SAO Account"}`;
   const itemsLink = $('[data-view="items"]');
-  if (itemsLink) itemsLink.innerHTML = `<span class="nav-icon">▤</span>${previewMode ? "Find Lost Items" : "Lost & Found Records"}`;
+  if (itemsLink) itemsLink.innerHTML = `<span class="nav-icon">▤</span>${previewMode ? "Find Found Items" : "Found Items Records"}`;
   todayString();
   renderAll();
 }
@@ -242,25 +234,22 @@ function statusClass(status) {
 }
 
 function renderStats() {
-  const lost = state.items.filter(item => item.type === "Lost").length;
-  const found = state.items.filter(item => item.type === "Found").length;
-  const resolved = state.items.filter(item => item.status === "Claimed" || item.type === "Found").length;
+  const foundItems = state.items.filter(item => item.type === "Found");
+  const available = foundItems.filter(item => item.status === "Available").length;
+  const returned = foundItems.filter(item => item.status === "Returned").length;
   $("#totalReports").textContent = state.items.length;
-  $("#lostReports").textContent = lost;
-  $("#foundReports").textContent = found;
-  $("#resolvedReports").textContent = resolved;
-  $("#landingTotal").textContent = state.items.length;
-  $("#landingLost").textContent = lost;
-  $("#landingFound").textContent = found;
-  $("#landingResolved").textContent = resolved;
+  if ($("#availableReports")) $("#availableReports").textContent = available;
+  if ($("#returnedReports")) $("#returnedReports").textContent = returned;
+  $("#landingTotal").textContent = foundItems.length;
+  $("#landingFound").textContent = available;
+  $("#landingResolved").textContent = returned;
   syncActiveStatCard();
 }
 
 function syncActiveStatCard() {
-  const type = $("#typeFilter")?.value || "All";
   const status = $("#statusFilter")?.value || "All";
-  if (status === "Resolved" || status === "Claimed") activeStatFilter = "Claimed";
-  else if (type === "Lost" || type === "Found") activeStatFilter = type;
+  if (status === "Available") activeStatFilter = "Available";
+  else if (status === "Returned") activeStatFilter = "Returned";
   else activeStatFilter = "All";
   $$("#statsGrid [data-stat-filter]").forEach(card => {
     card.classList.toggle("active", card.dataset.statFilter === activeStatFilter);
@@ -270,7 +259,7 @@ function syncActiveStatCard() {
 function renderLandingItems() {
   const search = ($("#landingSearchInput")?.value || "").trim().toLowerCase();
   const items = state.items
-    .filter(item => item.type === "Lost" && item.status !== "Claimed")
+    .filter(item => item.type === "Found" && item.status === "Available")
     .filter(item => {
       if (!search) return true;
       return [item.name, item.category, item.location, item.description]
@@ -282,7 +271,7 @@ function renderLandingItems() {
     ? items.map(item => `
       <article class="landing-item-card" data-item-id="${escapeHTML(item.id)}" tabindex="0" role="button" aria-label="View ${escapeHTML(item.name)}">
         <div class="landing-item-copy">
-          <span class="status-badge type-lost">Lost</span>
+          <span class="status-badge status-available">Available</span>
           <h3>${escapeHTML(item.name)}</h3>
           <p>${escapeHTML(item.description || "No description provided.")}</p>
           <div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>▦ ${formatDate(item.date)}</span></div>
@@ -310,15 +299,11 @@ function updateLandingScrollButtons() {
 
 function renderItems() {
   const search = $("#searchInput").value.trim().toLowerCase();
-  const type = $("#typeFilter").value;
   const status = $("#statusFilter").value;
-  const filtered = state.items.filter(item => {
+  const filtered = state.items.filter(item => item.type === "Found").filter(item => {
     const searchable = [item.name, item.category, item.location, item.description].join(" ").toLowerCase();
-    return searchable.includes(search)
-      && (type === "All" || item.type === type)
-      && (status === "All"
-        || (status === "Resolved" && (item.status === "Claimed" || item.type === "Found"))
-        || item.status === status);
+    if (previewMode && item.status === "Returned") return false;
+    return searchable.includes(search) && (status === "All" || item.status === status);
   }).sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }));
 
   $("#visibleCount").textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
@@ -327,15 +312,15 @@ function renderItems() {
     <article class="item-card" data-item-id="${escapeHTML(item.id)}" tabindex="0" role="button" aria-label="View ${escapeHTML(item.name)}">
       <div class="item-photo">${item.photoUrl
         ? `<img src="${escapeHTML(item.photoUrl)}" alt="${escapeHTML(item.name)}" loading="lazy" onerror="this.remove()">`
-        : `<span class="photo-placeholder">${item.type === "Lost" ? "⌕" : "✓"}</span>`}
-        <span class="type-badge type-${escapeHTML(String(item.type).toLowerCase())}">${escapeHTML(item.type)}</span>
+        : `<span class="photo-placeholder">✓</span>`}
+        <span class="type-badge type-found">Found</span>
       </div>
       <div class="item-body">
         <div class="item-topline"><span class="muted">${escapeHTML(item.category)}</span><span class="status-badge ${statusClass(item.status)}">${escapeHTML(item.status)}</span></div>
         <h3>${escapeHTML(item.name)}</h3>
         <p class="item-description">${escapeHTML(item.description || "No additional description provided.")}</p>
         <div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>▦ ${formatDate(item.date)}</span></div>
-        <div class="item-footer"><span>SAO verified report</span><span>View details ›</span></div>
+        <div class="item-footer"><span>Recorded by SAO</span><span>View details ›</span></div>
       </div>
     </article>`).join("");
 }
@@ -383,29 +368,33 @@ function closeImageLightbox() {
   $("#lightboxImage").alt = "";
 }
 
-function openReportForm(defaultType = "Lost") {
-  openModal("Report an Item", "Provide accurate details to help the campus community identify the item.", `
+function openConfirmation(message, action) {
+  confirmAction = action;
+  $("#confirmTitle").textContent = "Code";
+  $("#confirmMessage").textContent = message;
+  $("#confirmBackdrop").classList.remove("hidden");
+  $("#confirmOk").focus();
+}
+
+function closeConfirmation() {
+  confirmAction = null;
+  $("#confirmBackdrop").classList.add("hidden");
+}
+
+function openReportForm() {
+  openModal("Add Found Item", "Record an item found and held by SAO.", `
     <form id="reportForm" novalidate>
       <div class="form-grid">
-        <div class="field"><label for="itemType">Report type *</label><select id="itemType" name="type"><option ${defaultType === "Lost" ? "selected" : ""}>Lost</option><option ${defaultType === "Found" ? "selected" : ""}>Found</option></select></div>
         <div class="field"><label for="itemCategory">Category *</label><select id="itemCategory" name="category" required><option value="">Select category</option><option>ID / Card</option><option>Electronics</option><option>Accessories</option><option>School Supplies</option><option>Personal Belongings</option><option>Other</option></select><small class="field-error" data-error="category"></small></div>
         <div class="field full"><label for="itemName">Item name *</label><input id="itemName" name="name" placeholder="e.g. Black water bottle" required /><small class="field-error" data-error="name"></small></div>
-        <div class="field"><label for="itemLocation" id="locationLabel">Location lost *</label><input id="itemLocation" name="location" placeholder="Where did you last see it?" required /><small class="field-error" data-error="location"></small></div>
-        <div class="field"><label for="itemDate">Date *</label><div class="date-input-wrap"><input id="itemDate" name="date" type="date" max="${new Date().toISOString().slice(0, 10)}" required /><img src="assets/calendar.png" alt="" aria-hidden="true" /></div><small class="field-error" data-error="date"></small></div>
+        <div class="field full"><label for="itemLocation" id="locationLabel">Location found *</label><input id="itemLocation" name="location" placeholder="Where was the item found?" required /><small class="field-error" data-error="location"></small></div>
+        <div class="field full"><label for="itemDate">Date found *</label><div class="date-input-wrap"><input id="itemDate" name="date" type="date" max="${new Date().toISOString().slice(0, 10)}" required /><img src="assets/calendar.png" alt="" aria-hidden="true" /></div><small class="field-error" data-error="date"></small></div>
         <div class="field full"><label for="itemPhoto">Photo URL (optional)</label><input id="itemPhoto" name="photoUrl" type="url" placeholder="https://example.com/item-photo.jpg" /><small class="field-hint">You may add a photo URL or leave the image blank.</small></div>
         <div class="field full"><label for="itemPhotoFile">Upload an image (optional)</label><input id="itemPhotoFile" name="photoFile" type="file" accept="image/*" /><small class="field-hint">Image files up to 750 KB. An uploaded image takes priority over a photo URL.</small><small class="field-error" data-error="photoUrl"></small><img id="photoPreview" class="upload-preview hidden" alt="Selected item photo preview" /></div>
         <div class="field full"><label for="itemDescription">Description *</label><textarea id="itemDescription" name="description" placeholder="Color, brand, distinguishing marks, or other details..." required></textarea><small class="field-error" data-error="description"></small></div>
       </div>
       <div class="form-actions"><button type="button" class="cancel-button" data-action="close-modal">Cancel</button><button class="primary-button" type="submit">Submit Report</button></div>
     </form>`);
-  updateFormLabels();
-}
-
-function updateFormLabels() {
-  const type = $("#itemType")?.value;
-  if (!type) return;
-  $("#locationLabel").textContent = type === "Lost" ? "Location lost *" : "Location found *";
-  $("#itemLocation").placeholder = type === "Lost" ? "Where did you last see it?" : "Where did you find it?";
 }
 
 function setError(field, message) {
@@ -455,6 +444,47 @@ function readImageFile(file) {
   });
 }
 
+async function editItem(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const item = state.items.find(entry => entry.id === String(data.get("itemId")));
+  if (!item || previewMode) return;
+  let valid = true;
+  ["category", "name", "location", "date", "description"].forEach(field => {
+    const ok = String(data.get(field) || "").trim().length > 0;
+    setError(field, ok ? "" : "This field is required.");
+    valid = ok && valid;
+  });
+  if (!valid) return;
+  const photoFile = data.get("photoFile");
+  let photoUrl = String(data.get("photoUrl") || "").trim();
+  if (photoFile instanceof File && photoFile.size > 0) {
+    try {
+      photoUrl = await readImageFile(photoFile);
+    } catch (error) {
+      showToast("The selected image could not be read.", "error");
+      return;
+    }
+  } else if (!photoUrl) {
+    photoUrl = item.photoUrl;
+  }
+  item.category = String(data.get("category")).trim();
+  item.name = String(data.get("name")).trim();
+  item.location = String(data.get("location")).trim();
+  item.date = String(data.get("date"));
+  item.description = String(data.get("description")).trim();
+  item.photoUrl = photoUrl;
+  try {
+    saveData();
+  } catch (error) {
+    showToast("Could not save item changes.", "error");
+    return;
+  }
+  closeModal();
+  renderAll();
+  showToast("Found item updated.");
+}
+
 async function addItem(event) {
   event.preventDefault();
   const data = new FormData(event.target);
@@ -472,7 +502,7 @@ async function addItem(event) {
   }
   const item = {
     id: makeId(),
-    type: String(data.get("type")),
+    type: "Found",
     category: String(data.get("category")).trim(),
     name: String(data.get("name")).trim(),
     location: String(data.get("location")).trim(),
@@ -481,7 +511,7 @@ async function addItem(event) {
     description: String(data.get("description")).trim(),
     ownerId: state.currentUser.id,
     ownerName: state.currentUser.name,
-    status: "Unclaimed",
+    status: "Available",
     createdAt: new Date().toISOString()
   };
   state.items.unshift(item);
@@ -493,7 +523,7 @@ async function addItem(event) {
     setError("photoUrl", "Could not save this report. The browser may be out of storage space.");
     return;
   }
-  addActivity(`${item.type} item reported: ${item.name}`);
+  addActivity(`Found item recorded: ${item.name}`);
   closeModal();
   renderView("dashboard");
   showToast("Your item report has been added.");
@@ -504,36 +534,34 @@ function openItemForm(id) {
   if (!item) return;
   activeItemId = id;
   const isOwner = item.ownerId === state.currentUser?.id;
-  const hasPendingRequest = state.requests.some(request => request.itemId === id
-    && request.userId === state.currentUser?.id && request.status === "Pending");
   let action = "";
-  if (isOwner) {
-    action = '<button class="delete-button" data-action="delete-item" data-item-id="' + escapeHTML(item.id) + '">Delete report</button>';
-    if (!previewMode && item.type === "Lost" && item.status !== "Claimed") {
-      action += '<button class="approve-button" data-action="mark-item-found" data-item-id="' + escapeHTML(item.id) + '">Item Found</button>';
+  if (!previewMode) {
+    action = '<button class="approve-button" data-action="edit-item" data-item-id="' + escapeHTML(item.id) + '">Edit Item</button>';
+    action += '<button class="delete-button" data-action="delete-item" data-item-id="' + escapeHTML(item.id) + '">Delete Item</button>';
+    if (item.status === "Available") {
+      action += '<button class="approve-button" data-action="mark-item-returned" data-item-id="' + escapeHTML(item.id) + '">Mark Returned</button>';
+    } else {
+      action += '<button class="secondary-button" data-action="mark-item-available" data-item-id="' + escapeHTML(item.id) + '">Mark Available</button>';
     }
-  } else if (item.status === "Claimed") {
-    action = '<p class="muted">This item has already been claimed and cannot receive new requests.</p>';
-  } else if (hasPendingRequest) {
-    action = '<p class="muted">You already have a pending request for this item.</p>';
-  } else {
-    action = `<button class="primary-button" data-action="start-request">${item.type === "Found" ? "Request to Claim Item" : "I Found This Item"}</button>`;
   }
 
   const image = item.photoUrl
     ? `<img class="detail-image" data-expandable-image src="${escapeHTML(item.photoUrl)}" alt="${escapeHTML(item.name)}" onerror="this.style.display='none'">`
-    : `<div class="detail-image detail-placeholder">${item.type === "Lost" ? "⌕" : "✓"}</div>`;
-  openModal(item.name, `${item.type} item · Reported ${formatDate(item.date)}`, `
+    : `<div class="detail-image detail-placeholder">✓</div>`;
+  const studentOfficeInfo = previewMode
+    ? '<div class="item-detail-footer"><strong>If this item belongs to you, visit the SAO office with identifying information.</strong><br><span>SAO Contact: <strong>' + escapeHTML(getSaoContact()) + '</strong></span></div>'
+    : '<div class="item-detail-footer"><span>SAO Contact: <strong>' + escapeHTML(getSaoContact()) + '</strong></span></div>';
+  openModal(item.name, `Found item · Found ${formatDate(item.date)}`, `
     ${image}
     <div class="detail-info">
       <div class="detail-cell"><small>Category</small><strong>${escapeHTML(item.category)}</strong></div>
       <div class="detail-cell"><small>Status</small><strong><span class="status-badge ${statusClass(item.status)}">${escapeHTML(item.status)}</span></strong></div>
-      <div class="detail-cell"><small>Location ${item.type === "Lost" ? "lost" : "found"}</small><strong>${escapeHTML(item.location)}</strong></div>
-      <div class="detail-cell"><small>Report date</small><strong>${formatDate(item.date)}</strong></div>
+      <div class="detail-cell"><small>Location found</small><strong>${escapeHTML(item.location)}</strong></div>
+      <div class="detail-cell"><small>Date found</small><strong>${formatDate(item.date)}</strong></div>
     </div>
     <p class="detail-description">${escapeHTML(item.description)}</p>
     ${action ? `<div class="form-actions item-detail-actions">${action}</div>` : ""}
-    <div class="item-detail-footer"><span>For inquiries, contact SAO: <strong>${escapeHTML(getSaoContact())}</strong></span></div>`);
+    ${studentOfficeInfo}`);
 }
 
 function requestForm(item) {
@@ -629,7 +657,14 @@ function approveRequest(id) {
     showToast("Only the original poster can approve this request.", "error");
     return;
   }
-  if (!confirm(`Approve this request and permanently delete "${item.name}" and its requests?`)) return;
+  openConfirmation(`Approve this request and permanently delete "${item.name}" and its requests?`, () => approveRequestConfirmed(id));
+}
+
+function approveRequestConfirmed(id) {
+  closeConfirmation();
+  const request = state.requests.find(entry => entry.id === id && entry.status === "Pending");
+  const item = request && state.items.find(entry => entry.id === request.itemId);
+  if (!request || !item || item.ownerId !== state.currentUser?.id) return;
   const itemName = item.name;
   const requesterId = request.userId;
   const otherPendingUserIds = state.requests
@@ -663,7 +698,13 @@ function deleteItem(id) {
     showToast("Only the original poster can delete this report.", "error");
     return;
   }
-  if (!confirm(`Permanently delete "${item.name}" and all associated requests?`)) return;
+  openConfirmation(`Permanently delete "${item.name}"?`, () => deleteItemConfirmed(id));
+}
+
+function deleteItemConfirmed(id) {
+  closeConfirmation();
+  const item = state.items.find(entry => entry.id === id);
+  if (!item || item.ownerId !== state.currentUser?.id) return;
   const previousItems = state.items;
   const previousRequests = state.requests;
   state.items = state.items.filter(entry => entry.id !== id);
@@ -679,32 +720,61 @@ function deleteItem(id) {
   }
   closeModal();
   renderAll();
-  showToast("The report and its requests were deleted.");
+  showToast("The found item was deleted.");
 }
 
-function markItemFound(id) {
+function setItemStatus(id, status) {
   const item = state.items.find(entry => entry.id === id);
   if (!item || previewMode || item.ownerId !== state.currentUser?.id) {
-    showToast("Only the SAO administrator can mark an item as found.", "error");
+    showToast("Only the SAO administrator can update item status.", "error");
     return;
   }
-  if (!confirm(`Mark "${item.name}" as found and resolved?`)) return;
-  const previousType = item.type;
+  openConfirmation(
+    status === "Returned"
+      ? `Mark "${item.name}" as Returned?`
+      : `Mark "${item.name}" as Available?`,
+    () => setItemStatusConfirmed(id, status)
+  );
+}
+
+function setItemStatusConfirmed(id, status) {
+  closeConfirmation();
+  const item = state.items.find(entry => entry.id === id);
+  if (!item || previewMode || item.ownerId !== state.currentUser?.id) return;
   const previousStatus = item.status;
-  item.type = "Found";
-  item.status = "Claimed";
+  item.status = status;
   try {
     saveData();
   } catch (error) {
-    item.type = previousType;
     item.status = previousStatus;
-    console.error("Could not save resolved item status:", error);
+    console.error("Could not save item status:", error);
     showToast("The item status could not be updated.", "error");
     return;
   }
   closeModal();
   renderAll();
-  showToast("Item marked as found and resolved.");
+  showToast(status === "Returned" ? "Item marked as Returned." : "Item marked as Available.");
+}
+
+function openEditItemForm(id) {
+  const item = state.items.find(entry => entry.id === id);
+  if (!item || previewMode) return;
+  openModal("Edit Found Item", "Update the SAO found-item record.", `
+    <form id="editItemForm" novalidate>
+      <div class="form-grid">
+        <div class="field"><label for="editItemCategory">Category *</label><select id="editItemCategory" name="category" required>
+          ${["ID / Card","Electronics","Accessories","School Supplies","Personal Belongings","Other"].map(category => `<option ${item.category === category ? "selected" : ""}>${category}</option>`).join("")}
+        </select><small class="field-error" data-error="category"></small></div>
+        <div class="field full"><label for="editItemName">Item name *</label><input id="editItemName" name="name" value="${escapeHTML(item.name)}" required /><small class="field-error" data-error="name"></small></div>
+        <div class="field full"><label for="editItemLocation">Location found *</label><input id="editItemLocation" name="location" value="${escapeHTML(item.location)}" required /><small class="field-error" data-error="location"></small></div>
+        <div class="field full"><label for="editItemDate">Date found *</label><input id="editItemDate" name="date" type="date" max="${new Date().toISOString().slice(0,10)}" value="${escapeHTML(item.date)}" required /><small class="field-error" data-error="date"></small></div>
+        <div class="field full"><label for="editItemPhoto">Photo URL (optional)</label><input id="editItemPhoto" name="photoUrl" type="url" value="${escapeHTML(item.photoUrl?.startsWith("data:") ? "" : item.photoUrl)}" /><small class="field-hint">Leave blank to keep an uploaded image.</small></div>
+        <div class="field full"><label for="editItemPhotoFile">Replace uploaded image (optional)</label><input id="editItemPhotoFile" name="photoFile" type="file" accept="image/*" /><img id="editPhotoPreview" class="upload-preview hidden" alt="Updated item photo preview" /></div>
+        <div class="field full"><label for="editItemDescription">Description *</label><textarea id="editItemDescription" name="description" required>${escapeHTML(item.description)}</textarea><small class="field-error" data-error="description"></small></div>
+      </div>
+      <input type="hidden" name="itemId" value="${escapeHTML(item.id)}" />
+      <div class="form-actions"><button type="button" class="cancel-button" data-action="close-modal">Cancel</button><button class="primary-button" type="submit">Save Changes</button></div>
+    </form>`);
 }
 
 function rejectRequest(id) {
@@ -728,13 +798,12 @@ function loadSampleData() {
   const sampleEmail = sampleUser.email;
   const samples = [
     ["Found", "ID / Card", "University ID with blue lace", "SITE Building, 2nd Floor", "A blue lanyard is attached. The name is partly visible.", ""],
-    ["Lost", "Electronics", "Black wireless earbuds case", "Library, study area", "Small black charging case with a scratch near the hinge.", "assets/Earbuds.jpg"],
+    ["Found", "Electronics", "Black wireless earbuds case", "Library, study area", "Small black charging case with a scratch near the hinge.", "assets/Earbuds.jpg"],
     ["Found", "Accessories", "Silver wristwatch", "Cafeteria, near counter", "Found beside the water station after lunch.", ""],
-    ["Lost", "School Supplies", "Scientific calculator", "Room 301, SITE Building", "Dark gray calculator with initials written at the back.", ""],
+    ["Found", "School Supplies", "Scientific calculator", "Room 301, SITE Building", "Dark gray calculator with initials written at the back.", ""],
     ["Found", "Personal Belongings", "Stainless steel tumbler", "Computer Laboratory 2", "Matte silver tumbler with a small sticker.", "assets/Tumbler.jpg"],
     ["Found", "Uniform", "School of Health uniform", "Main campus", "Uniform sample report for testing the supplied photo.", "assets/SOH_Uniform.jpg"],
-    ["Lost", "Accessories", "Green umbrella", "Main lobby", "Foldable umbrella with a wooden handle.", ""],
-    ["Lost", "Joke", "John Kaiser Ocoma", "Campus", "Masarap, Pogi, Mayaman", "assets/Kaiser_LOST_TestJoke.jpg"]
+    ["Found", "Accessories", "Green umbrella", "Main lobby", "Foldable umbrella with a wooden handle.", ""]
   ];
   const existingNames = new Set(state.items.map(item => item.name));
   const sampleDate = new Date().toISOString().slice(0, 10);
@@ -745,7 +814,7 @@ function loadSampleData() {
       location: row[3], date: sampleDate, description: row[4],
       photoUrl: row[5],
       contact: sampleEmail, ownerId: sampleUser.id, ownerName: sampleUser.name,
-      status: index === 4 ? "Claimed" : "Unclaimed", createdAt: new Date(Date.now() - index * 3600000).toISOString()
+      status: index === 4 ? "Returned" : "Available", createdAt: new Date(Date.now() - index * 3600000).toISOString()
     });
   });
   saveData();
@@ -916,13 +985,13 @@ function renderView(view) {
   activeView = view;
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === view));
   const titles = {
-    dashboard: ["Campus Lost & Found", "Find an item or help return something to its owner."],
-    items: ["Lost & Found Items", "Browse, search, and filter campus item reports."],
+    dashboard: ["Found Items", "Manage items recorded and held by SAO."],
+    items: ["Found Items", "Browse, search, and filter SAO found-item records."],
     account: ["My Account", "Manage your account and portal data."]
   };
   const studentTitles = {
-    dashboard: ["Campus Lost & Found", "Browse missing and found items as a student."],
-    items: ["Find Lost & Found Items", "Search campus reports and submit a claim or found-it request."],
+    dashboard: ["Campus Found Items", "Browse available items recorded by SAO."],
+    items: ["Find Found Items", "Search the SAO catalog and visit the office to claim an item."],
     account: ["My Account", "Preview your student account information."]
   };
   const [title, subtitle] = titles[view] || titles.dashboard;
@@ -945,8 +1014,6 @@ function searchItems() {
 }
 
 function filterByType() {
-  if ($("#statusFilter").value !== "Resolved") $("#statusFilter").value = "All";
-  syncActiveStatCard();
   renderItems();
 }
 
@@ -958,8 +1025,7 @@ function filterByStatus() {
 function filterFromStat(filter) {
   activeStatFilter = filter;
   $("#searchInput").value = "";
-  $("#typeFilter").value = filter === "Lost" || filter === "Found" ? filter : "All";
-  $("#statusFilter").value = filter === "Claimed" ? "Resolved" : "All";
+  $("#statusFilter").value = filter === "Available" || filter === "Returned" ? filter : "All";
   renderView("items");
   renderItems();
 }
@@ -978,7 +1044,11 @@ function toggleNotifications() {
 }
 
 function resetData() {
-  if (!confirm("Reset all portal data? This removes saved accounts, reports, requests and notifications from this browser.")) return;
+  openConfirmation("Reset all portal data? This removes saved accounts, found items, and notifications from this browser.", resetDataConfirmed);
+}
+
+function resetDataConfirmed() {
+  closeConfirmation();
   state = { users: [], items: [], requests: [], notifications: [], currentUser: null };
   activeStatFilter = "All";
   saveData();
@@ -989,6 +1059,14 @@ function resetData() {
 }
 
 function bindEvents() {
+  $("#confirmClose").addEventListener("click", closeConfirmation);
+  $("#confirmCancel").addEventListener("click", closeConfirmation);
+  $("#confirmBackdrop").addEventListener("click", event => {
+    if (event.target.id === "confirmBackdrop") closeConfirmation();
+  });
+  $("#confirmOk").addEventListener("click", () => {
+    if (typeof confirmAction === "function") confirmAction();
+  });
   $("#statsGrid").addEventListener("click", event => {
     const card = event.target.closest("[data-stat-filter]");
     if (card) filterFromStat(card.dataset.statFilter);
@@ -1023,7 +1101,6 @@ function bindEvents() {
   $("#sampleBtn").addEventListener("click", loadSampleData);
   $("#logoutBtn").addEventListener("click", logoutUser);
   $("#searchInput").addEventListener("input", searchItems);
-  $("#typeFilter").addEventListener("change", filterByType);
   $("#statusFilter").addEventListener("change", filterByStatus);
   $("#closeModal").addEventListener("click", closeModal);
   $("#modalBackdrop").addEventListener("click", event => {
@@ -1086,7 +1163,6 @@ function bindEvents() {
     }
   });
   $("#modalBody").addEventListener("change", event => {
-    if (event.target.id === "itemType") updateFormLabels();
     if (event.target.id === "requestProofPhoto") {
       const file = event.target.files[0];
       const preview = $("#proofPhotoPreview");
@@ -1164,13 +1240,11 @@ function bindEvents() {
     const target = event.target.closest("[data-action]");
     if (!target) return;
     if (target.dataset.action === "close-modal") closeModal();
-    if (target.dataset.action === "start-request") {
-      const item = state.items.find(entry => entry.id === activeItemId);
-      if (item) requestForm(item);
-    }
     if (target.dataset.action === "back-to-item") openItemForm(activeItemId);
     if (target.dataset.action === "delete-item") deleteItem(target.dataset.itemId);
-    if (target.dataset.action === "mark-item-found") markItemFound(target.dataset.itemId);
+    if (target.dataset.action === "mark-item-returned") setItemStatus(target.dataset.itemId, "Returned");
+    if (target.dataset.action === "mark-item-available") setItemStatus(target.dataset.itemId, "Available");
+    if (target.dataset.action === "edit-item") openEditItemForm(target.dataset.itemId);
     if (target.dataset.action === "go-account") {
       closeModal();
       renderView("account");
@@ -1185,12 +1259,13 @@ function bindEvents() {
     if (event.target.id === "registerForm") registerUser(event);
     else if (event.target.id === "loginForm") loginUser(event);
     else if (event.target.id === "reportForm") addItem(event);
-    else if (event.target.id === "claimForm") submitClaim(event);
+    else if (event.target.id === "editItemForm") editItem(event);
     else if (event.target.id === "saoContactForm") saveSaoContact(event);
   });
   document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
-      if (!$("#imageLightbox").classList.contains("hidden")) closeImageLightbox();
+      if (!$("#confirmBackdrop").classList.contains("hidden")) closeConfirmation();
+      else if (!$("#imageLightbox").classList.contains("hidden")) closeImageLightbox();
       else closeModal();
     }
   });
