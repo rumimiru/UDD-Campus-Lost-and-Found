@@ -1,12 +1,15 @@
 const STORAGE_KEY = "stepsLostFoundData_v1";
 const SESSION_KEY = "stepsLostFoundSession_v1";
 const THEME_KEY = "stepsTheme";
+const SAO_CONTACT_KEY = "stepsSaoContact";
 const CONTACT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$|^https?:\/\/\S+$/i;
 
 let state = { users: [], items: [], requests: [], notifications: [], currentUser: null };
 let activeItemId = null;
 let activeView = "dashboard";
 let toastTimer = null;
+let previewMode = false;
+let activeStatFilter = "All";
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -15,6 +18,55 @@ const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({
 }[char]));
 const makeId = () => crypto.randomUUID();
 const initials = name => String(name || "Guest").trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+
+function getSaoContact() {
+  return String(localStorage.getItem(SAO_CONTACT_KEY) || "sao@udd.edu.ph").trim();
+}
+
+function setSaoContact(contact) {
+  localStorage.setItem(SAO_CONTACT_KEY, contact);
+  updateSaoContactDisplay();
+}
+
+function updateSaoContactDisplay() {
+  const contact = getSaoContact();
+  if ($("#landingSaoContact")) $("#landingSaoContact").textContent = contact;
+  if ($("#pageSaoContact")) $("#pageSaoContact").textContent = contact;
+}
+
+function ensureSaoAdmin() {
+  let saoUser = state.users.find(user => user.username === "sao.admin");
+  if (!saoUser) {
+    saoUser = {
+      id: makeId(),
+      name: "SAO Administrator",
+      email: "sao.admin@udd.edu.ph",
+      schoolId: "SAO-ADMIN",
+      username: "sao.admin",
+      password: "admin123",
+      role: "SAO Admin"
+    };
+    state.users.push(saoUser);
+  }
+  return saoUser;
+}
+
+function ensurePreviewStudent() {
+  let student = state.users.find(user => user.username === "student.preview");
+  if (!student) {
+    student = {
+      id: makeId(),
+      name: "Student Preview",
+      email: "student.preview@campus.test",
+      schoolId: "PREVIEW-STUDENT",
+      username: "student.preview",
+      password: "preview123",
+      role: "Student"
+    };
+    state.users.push(student);
+  }
+  return student;
+}
 
 function showToast(message, type = "success") {
   const toast = $("#toast");
@@ -33,6 +85,19 @@ function loadFromStorage() {
     state.items = Array.isArray(saved.items) ? saved.items : [];
     state.requests = Array.isArray(saved.requests) ? saved.requests : [];
     state.notifications = Array.isArray(saved.notifications) ? saved.notifications : [];
+    let saoUser = state.users.find(user => user.username === "sao.admin");
+    if (!saoUser) {
+      saoUser = {
+        id: makeId(),
+        name: "SAO Administrator",
+        email: "sao.admin@udd.edu.ph",
+        schoolId: "SAO-ADMIN",
+        username: "sao.admin",
+        password: "admin123",
+        role: "SAO Admin"
+      };
+      state.users.push(saoUser);
+    }
     const sessionId = localStorage.getItem(SESSION_KEY);
     state.currentUser = state.users.find(user => user.id === sessionId) || null;
     if (storedData === null) seedJokeExample();
@@ -43,6 +108,16 @@ function loadFromStorage() {
 }
 
 function seedJokeExample() {
+  const saoUser = {
+    id: makeId(),
+    name: "SAO Administrator",
+    email: "sao.admin@udd.edu.ph",
+    schoolId: "SAO-ADMIN",
+    username: "sao.admin",
+    password: "admin123",
+    role: "SAO Admin"
+  };
+  state.users.push(saoUser);
   const sampleEmail = "sample.student@campus.test";
   const sampleUser = {
     id: makeId(),
@@ -64,8 +139,8 @@ function seedJokeExample() {
     description: "Masarap, Pogi, Mayaman",
     photoUrl: "assets/Kaiser_LOST_TestJoke.jpg",
     contact: sampleEmail,
-    ownerId: sampleUser.id,
-    ownerName: sampleUser.name,
+    ownerId: saoUser.id,
+    ownerName: saoUser.name,
     status: "Unclaimed",
     createdAt: new Date().toISOString()
   });
@@ -112,35 +187,53 @@ function todayString() {
   $("#todayLine").textContent = now.toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric"
   });
-  $("#greeting").textContent = `Welcome, ${state.currentUser?.name || "Guest Student"}`;
+  $("#greeting").textContent = `Welcome, ${state.currentUser?.name || "SAO Administrator"}`;
 }
 
 function updateUserInterface() {
   const user = state.currentUser;
-  $("#sideName").textContent = user?.name || "Guest Student";
-  $("#sideRole").textContent = user ? `${user.role} account` : "Student account";
-  $("#sideAvatar").textContent = initials(user?.name || "FN");
+  $("#sideName").textContent = previewMode ? "Student Preview" : (user?.name || "SAO Administrator");
+  $("#sideRole").textContent = previewMode ? "Student perspective" : (user ? `${user.role} account` : "Admin account");
+  $("#sideAvatar").textContent = previewMode ? "ST" : initials(user?.name || "SA");
   $("#topAvatar").innerHTML = user
     ? escapeHTML(initials(user.name))
     : '<img src="assets/user.png" alt="Guest profile" />';
   $("#topAvatar").classList.toggle("guest-avatar", !user);
-  $("#rolePill").textContent = user?.role || "Guest";
-  $("#logoutBtn").classList.toggle("hidden", !user);
+  $("#rolePill").textContent = previewMode ? "Student Preview" : (user?.role || "SAO Admin");
+  $("#logoutBtn").classList.toggle("hidden", !user || previewMode);
+  $("#sampleBtn").classList.toggle("hidden", previewMode);
+  $("#reportBtn").classList.toggle("hidden", previewMode);
+  $("#sideName").closest(".user-mini").classList.toggle("preview-student", previewMode);
+  $$('.nav-label').forEach((label, index) => {
+    if (previewMode) label.classList.toggle("hidden", index === 1);
+  });
+  const accountLink = $('[data-view="account"]');
+  if (accountLink) accountLink.innerHTML = `<span class="nav-icon">♙</span>${previewMode ? "My Account" : "SAO Account"}`;
+  const itemsLink = $('[data-view="items"]');
+  if (itemsLink) itemsLink.innerHTML = `<span class="nav-icon">▤</span>${previewMode ? "Find Lost Items" : "Lost & Found Records"}`;
   todayString();
   renderAll();
 }
 
 function showLanding() {
+  previewMode = false;
+  ensureSaoAdmin();
   $("#landingPage").classList.remove("hidden");
   $("#appShell").classList.add("hidden");
-  $("#landingAuth").classList.add("hidden");
-  $("#landingAuth").replaceChildren();
+  $("#statsGrid").classList.add("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function showPortal() {
+function showPortal(previewAsStudent = false) {
+  previewMode = previewAsStudent;
+  if (previewMode) {
+    state.currentUser = ensurePreviewStudent();
+  } else if (!state.currentUser) {
+    state.currentUser = ensureSaoAdmin();
+  }
   $("#landingPage").classList.add("hidden");
   $("#appShell").classList.remove("hidden");
+  updateUserInterface();
   renderView("dashboard");
 }
 
@@ -149,10 +242,70 @@ function statusClass(status) {
 }
 
 function renderStats() {
+  const lost = state.items.filter(item => item.type === "Lost").length;
+  const found = state.items.filter(item => item.type === "Found").length;
+  const resolved = state.items.filter(item => item.status === "Claimed" || item.type === "Found").length;
   $("#totalReports").textContent = state.items.length;
-  $("#lostReports").textContent = state.items.filter(item => item.type === "Lost").length;
-  $("#foundReports").textContent = state.items.filter(item => item.type === "Found").length;
-  $("#resolvedReports").textContent = state.items.filter(item => item.status === "Claimed").length;
+  $("#lostReports").textContent = lost;
+  $("#foundReports").textContent = found;
+  $("#resolvedReports").textContent = resolved;
+  $("#landingTotal").textContent = state.items.length;
+  $("#landingLost").textContent = lost;
+  $("#landingFound").textContent = found;
+  $("#landingResolved").textContent = resolved;
+  syncActiveStatCard();
+}
+
+function syncActiveStatCard() {
+  const type = $("#typeFilter")?.value || "All";
+  const status = $("#statusFilter")?.value || "All";
+  if (status === "Resolved" || status === "Claimed") activeStatFilter = "Claimed";
+  else if (type === "Lost" || type === "Found") activeStatFilter = type;
+  else activeStatFilter = "All";
+  $$("#statsGrid [data-stat-filter]").forEach(card => {
+    card.classList.toggle("active", card.dataset.statFilter === activeStatFilter);
+  });
+}
+
+function renderLandingItems() {
+  const search = ($("#landingSearchInput")?.value || "").trim().toLowerCase();
+  const items = state.items
+    .filter(item => item.type === "Lost" && item.status !== "Claimed")
+    .filter(item => {
+      if (!search) return true;
+      return [item.name, item.category, item.location, item.description]
+        .join(" ").toLowerCase().includes(search);
+    })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }))
+    .slice(0, 6);
+  $("#landingItemGrid").innerHTML = items.length
+    ? items.map(item => `
+      <article class="landing-item-card" data-item-id="${escapeHTML(item.id)}" tabindex="0" role="button" aria-label="View ${escapeHTML(item.name)}">
+        <div class="landing-item-copy">
+          <span class="status-badge type-lost">Lost</span>
+          <h3>${escapeHTML(item.name)}</h3>
+          <p>${escapeHTML(item.description || "No description provided.")}</p>
+          <div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>▦ ${formatDate(item.date)}</span></div>
+        </div>
+        <div class="landing-item-photo">
+          ${item.photoUrl
+            ? `<img src="${escapeHTML(item.photoUrl)}" alt="${escapeHTML(item.name)}" loading="lazy">`
+            : `<span class="photo-placeholder">⌕</span>`}
+          ${item.photoUrl ? '<span class="expand-hint">View image</span>' : ""}
+        </div>
+      </article>`).join("")
+    : '<div class="empty-state"><strong>No missing items are currently listed.</strong></div>';
+  requestAnimationFrame(updateLandingScrollButtons);
+}
+
+function updateLandingScrollButtons() {
+  const grid = $("#landingItemGrid");
+  const left = $("#landingScrollLeft");
+  const right = $("#landingScrollRight");
+  if (!grid || !left || !right) return;
+  const maxScroll = grid.scrollWidth - grid.clientWidth;
+  left.classList.toggle("hidden", grid.scrollLeft <= 2);
+  right.classList.toggle("hidden", maxScroll <= 2 || grid.scrollLeft >= maxScroll - 2);
 }
 
 function renderItems() {
@@ -163,8 +316,10 @@ function renderItems() {
     const searchable = [item.name, item.category, item.location, item.description].join(" ").toLowerCase();
     return searchable.includes(search)
       && (type === "All" || item.type === type)
-      && (status === "All" || item.status === status);
-  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      && (status === "All"
+        || (status === "Resolved" && (item.status === "Claimed" || item.type === "Found"))
+        || item.status === status);
+  }).sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }));
 
   $("#visibleCount").textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
   $("#emptyState").classList.toggle("hidden", filtered.length > 0);
@@ -180,7 +335,7 @@ function renderItems() {
         <h3>${escapeHTML(item.name)}</h3>
         <p class="item-description">${escapeHTML(item.description || "No additional description provided.")}</p>
         <div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>▦ ${formatDate(item.date)}</span></div>
-        <div class="item-footer"><span>Reported by <strong>${escapeHTML(item.ownerName)}</strong></span><span>View details ›</span></div>
+        <div class="item-footer"><span>SAO verified report</span><span>View details ›</span></div>
       </div>
     </article>`).join("");
 }
@@ -203,8 +358,8 @@ function renderAll() {
   renderStats();
   renderItems();
   renderNotifications();
+  renderLandingItems();
   if (activeView === "account") renderAccount();
-  else if (activeView === "notifications") renderNotificationPage();
 }
 
 function openModal(title, description, html) {
@@ -222,12 +377,13 @@ function closeModal() {
   activeItemId = null;
 }
 
+function closeImageLightbox() {
+  $("#imageLightbox").classList.add("hidden");
+  $("#lightboxImage").removeAttribute("src");
+  $("#lightboxImage").alt = "";
+}
+
 function openReportForm(defaultType = "Lost") {
-  if (!state.currentUser) {
-    showToast("Log in or register before reporting an item.", "error");
-    renderView("account");
-    return;
-  }
   openModal("Report an Item", "Provide accurate details to help the campus community identify the item.", `
     <form id="reportForm" novalidate>
       <div class="form-grid">
@@ -236,9 +392,8 @@ function openReportForm(defaultType = "Lost") {
         <div class="field full"><label for="itemName">Item name *</label><input id="itemName" name="name" placeholder="e.g. Black water bottle" required /><small class="field-error" data-error="name"></small></div>
         <div class="field"><label for="itemLocation" id="locationLabel">Location lost *</label><input id="itemLocation" name="location" placeholder="Where did you last see it?" required /><small class="field-error" data-error="location"></small></div>
         <div class="field"><label for="itemDate">Date *</label><div class="date-input-wrap"><input id="itemDate" name="date" type="date" max="${new Date().toISOString().slice(0, 10)}" required /><img src="assets/calendar.png" alt="" aria-hidden="true" /></div><small class="field-error" data-error="date"></small></div>
-        <div class="field full"><label for="itemContact">Contact (email or social link) *</label><input id="itemContact" name="contact" placeholder="name@email.com or https://..." required /><small class="field-error" data-error="contact"></small></div>
-        <div class="field full"><label for="itemPhoto">Photo URL</label><input id="itemPhoto" name="photoUrl" type="url" placeholder="https://example.com/item-photo.jpg" /><small class="field-hint">Add a photo URL or upload an image below.</small></div>
-        <div class="field full"><label for="itemPhotoFile">Upload an image *</label><input id="itemPhotoFile" name="photoFile" type="file" accept="image/*" /><small class="field-hint">Image files up to 750 KB. An uploaded image takes priority over a photo URL.</small><small class="field-error" data-error="photoUrl"></small><img id="photoPreview" class="upload-preview hidden" alt="Selected item photo preview" /></div>
+        <div class="field full"><label for="itemPhoto">Photo URL (optional)</label><input id="itemPhoto" name="photoUrl" type="url" placeholder="https://example.com/item-photo.jpg" /><small class="field-hint">You may add a photo URL or leave the image blank.</small></div>
+        <div class="field full"><label for="itemPhotoFile">Upload an image (optional)</label><input id="itemPhotoFile" name="photoFile" type="file" accept="image/*" /><small class="field-hint">Image files up to 750 KB. An uploaded image takes priority over a photo URL.</small><small class="field-error" data-error="photoUrl"></small><img id="photoPreview" class="upload-preview hidden" alt="Selected item photo preview" /></div>
         <div class="field full"><label for="itemDescription">Description *</label><textarea id="itemDescription" name="description" placeholder="Color, brand, distinguishing marks, or other details..." required></textarea><small class="field-error" data-error="description"></small></div>
       </div>
       <div class="form-actions"><button type="button" class="cancel-button" data-action="close-modal">Cancel</button><button class="primary-button" type="submit">Submit Report</button></div>
@@ -258,7 +413,7 @@ function setError(field, message) {
   if (error) error.textContent = message;
 }
 
-function validateContact(inputId = "itemContact", errorId = "contact") {
+function validateContact(inputId, errorId) {
   const input = $(`#${inputId}`);
   if (!input) return false;
   const value = input.value.trim();
@@ -274,11 +429,12 @@ function validateForm(data) {
     setError(field, ok ? "" : "This field is required.");
     valid = ok && valid;
   });
-  valid = validateContact() && valid;
   const photo = String(data.get("photoUrl") || "").trim();
   const file = data.get("photoFile");
   const hasFile = file instanceof File && file.size > 0;
-  const photoValid = hasFile
+  const photoValid = !photo && !hasFile
+    ? true
+    : hasFile
     ? file.type.startsWith("image/") && file.size <= 750 * 1024
     : /^https?:\/\/\S+/i.test(photo);
   setError("photoUrl", photoValid ? "" : hasFile
@@ -321,7 +477,6 @@ async function addItem(event) {
     name: String(data.get("name")).trim(),
     location: String(data.get("location")).trim(),
     date: String(data.get("date")),
-    contact: String(data.get("contact")).trim(),
     photoUrl,
     description: String(data.get("description")).trim(),
     ownerId: state.currentUser.id,
@@ -352,10 +507,11 @@ function openItemForm(id) {
   const hasPendingRequest = state.requests.some(request => request.itemId === id
     && request.userId === state.currentUser?.id && request.status === "Pending");
   let action = "";
-  if (!state.currentUser) {
-    action = '<p class="muted">Log in or register to submit a request.</p><button class="primary-button" data-action="go-account">Open My Account</button>';
-  } else if (isOwner) {
-    action = '<p class="muted">This is your report. Review requests below.</p><button class="delete-button" data-action="delete-item" data-item-id="' + escapeHTML(item.id) + '">Delete report</button>';
+  if (isOwner) {
+    action = '<button class="delete-button" data-action="delete-item" data-item-id="' + escapeHTML(item.id) + '">Delete report</button>';
+    if (!previewMode && item.type === "Lost" && item.status !== "Claimed") {
+      action += '<button class="approve-button" data-action="mark-item-found" data-item-id="' + escapeHTML(item.id) + '">Item Found</button>';
+    }
   } else if (item.status === "Claimed") {
     action = '<p class="muted">This item has already been claimed and cannot receive new requests.</p>';
   } else if (hasPendingRequest) {
@@ -364,33 +520,20 @@ function openItemForm(id) {
     action = `<button class="primary-button" data-action="start-request">${item.type === "Found" ? "Request to Claim Item" : "I Found This Item"}</button>`;
   }
 
-  const received = isOwner ? state.requests.filter(request => request.itemId === id) : [];
   const image = item.photoUrl
-    ? `<img class="detail-image" src="${escapeHTML(item.photoUrl)}" alt="${escapeHTML(item.name)}" onerror="this.style.display='none'">`
+    ? `<img class="detail-image" data-expandable-image src="${escapeHTML(item.photoUrl)}" alt="${escapeHTML(item.name)}" onerror="this.style.display='none'">`
     : `<div class="detail-image detail-placeholder">${item.type === "Lost" ? "⌕" : "✓"}</div>`;
-  const requestHtml = received.length
-    ? `<div class="request-box"><strong>Requests received (${received.length})</strong>${received.map(request => `
-        <div class="request-preview request-review">
-          <div><strong>${escapeHTML(request.fullName)}</strong><small>${escapeHTML(request.kind)} · ${escapeHTML(request.contact)}<br>${escapeHTML(request.proof)}</small>
-          ${request.proofPhotoUrl ? `<img class="upload-preview proof-preview" src="${escapeHTML(request.proofPhotoUrl)}" alt="Proof image uploaded by ${escapeHTML(request.fullName)}">` : ""}
-          <span class="status-badge ${statusClass(request.status)}">${escapeHTML(request.status)}</span></div>
-          ${request.status === "Pending" ? `<div class="request-actions"><button type="button" class="approve-button" data-approve="${escapeHTML(request.id)}">Approve &amp; delete report</button><button type="button" class="reject-button" data-reject="${escapeHTML(request.id)}">Reject</button></div>` : ""}
-        </div>`).join("")}</div>`
-    : isOwner ? '<div class="request-box"><strong>Requests received</strong><p>No requests have been submitted for this item.</p></div>' : "";
-
   openModal(item.name, `${item.type} item · Reported ${formatDate(item.date)}`, `
     ${image}
     <div class="detail-info">
       <div class="detail-cell"><small>Category</small><strong>${escapeHTML(item.category)}</strong></div>
       <div class="detail-cell"><small>Status</small><strong><span class="status-badge ${statusClass(item.status)}">${escapeHTML(item.status)}</span></strong></div>
       <div class="detail-cell"><small>Location ${item.type === "Lost" ? "lost" : "found"}</small><strong>${escapeHTML(item.location)}</strong></div>
-      <div class="detail-cell"><small>Reported by</small><strong>${escapeHTML(item.ownerName)}</strong></div>
-      <div class="detail-cell"><small>Contact</small><strong>${escapeHTML(item.contact)}</strong></div>
       <div class="detail-cell"><small>Report date</small><strong>${formatDate(item.date)}</strong></div>
     </div>
     <p class="detail-description">${escapeHTML(item.description)}</p>
-    <div class="form-actions">${action}<button class="cancel-button" data-action="close-modal">Close</button></div>
-    ${requestHtml}`);
+    ${action ? `<div class="form-actions item-detail-actions">${action}</div>` : ""}
+    <div class="item-detail-footer"><span>For inquiries, contact SAO: <strong>${escapeHTML(getSaoContact())}</strong></span></div>`);
 }
 
 function requestForm(item) {
@@ -539,6 +682,31 @@ function deleteItem(id) {
   showToast("The report and its requests were deleted.");
 }
 
+function markItemFound(id) {
+  const item = state.items.find(entry => entry.id === id);
+  if (!item || previewMode || item.ownerId !== state.currentUser?.id) {
+    showToast("Only the SAO administrator can mark an item as found.", "error");
+    return;
+  }
+  if (!confirm(`Mark "${item.name}" as found and resolved?`)) return;
+  const previousType = item.type;
+  const previousStatus = item.status;
+  item.type = "Found";
+  item.status = "Claimed";
+  try {
+    saveData();
+  } catch (error) {
+    item.type = previousType;
+    item.status = previousStatus;
+    console.error("Could not save resolved item status:", error);
+    showToast("The item status could not be updated.", "error");
+    return;
+  }
+  closeModal();
+  renderAll();
+  showToast("Item marked as found and resolved.");
+}
+
 function rejectRequest(id) {
   const request = state.requests.find(entry => entry.id === id && entry.status === "Pending");
   const item = request && state.items.find(entry => entry.id === request.itemId);
@@ -556,20 +724,8 @@ function rejectRequest(id) {
 }
 
 function loadSampleData() {
-  const sampleEmail = "sample.student@campus.test";
-  let sampleUser = state.users.find(user => user.email === sampleEmail);
-  if (!sampleUser) {
-    sampleUser = {
-      id: makeId(),
-      name: "Sample Student",
-      email: sampleEmail,
-      schoolId: "SAMPLE-001",
-      username: "sample.student",
-      password: "demo1234",
-      role: "Student"
-    };
-    state.users.push(sampleUser);
-  }
+  const sampleUser = ensureSaoAdmin();
+  const sampleEmail = sampleUser.email;
   const samples = [
     ["Found", "ID / Card", "University ID with blue lace", "SITE Building, 2nd Floor", "A blue lanyard is attached. The name is partly visible.", ""],
     ["Lost", "Electronics", "Black wireless earbuds case", "Library, study area", "Small black charging case with a scratch near the hinge.", "assets/Earbuds.jpg"],
@@ -595,7 +751,7 @@ function loadSampleData() {
   saveData();
   addActivity("Sample accounts and item reports were loaded.");
   renderView("dashboard");
-  showToast("Sample data loaded. Demo login: sample.student / demo1234");
+  showToast("Sample item records loaded for SAO Administrator.");
 }
 
 function logoutUser() {
@@ -706,6 +862,18 @@ function loginUser(event) {
   showToast(`Welcome back, ${user.name}.`);
 }
 
+function saveSaoContact(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const contact = String(data.get("saoContact") || "").trim();
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) || /^https?:\/\/\S+$/i.test(contact) || /^@\w[\w.]*$/.test(contact);
+  setError("saoContact", valid ? "" : "Enter a valid email, social handle, or link.");
+  if (!valid) return;
+  setSaoContact(contact);
+  showToast("SAO contact information updated.");
+  renderAccount();
+}
+
 function renderAccount() {
   if (!state.currentUser) {
     renderAuthForm("login");
@@ -718,23 +886,30 @@ function renderAccount() {
       <p><span>Email</span><strong>${escapeHTML(user.email)}</strong></p>
       <p><span>School ID</span><strong>${escapeHTML(user.schoolId)}</strong></p>
       <p><span>Username</span><strong>${escapeHTML(user.username)}</strong></p>
+      ${user.username === "sao.admin" ? '<p><span>Dummy password</span><strong>admin123</strong></p>' : ""}
       <p><span>Role</span><strong>${escapeHTML(user.role)}</strong></p>
     </div>
-    <button class="secondary-button" data-action="reset-data">Reset All Data</button>
+    ${!previewMode ? `
+      <div class="account-contact-editor">
+        <h4>SAO Contact Information</h4>
+        <p class="muted">This contact is shown on item details and both system footers.</p>
+        <form id="saoContactForm" novalidate>
+          <div class="field">
+            <label for="saoContactInput">SAO email or contact link *</label>
+            <input id="saoContactInput" name="saoContact" value="${escapeHTML(getSaoContact())}" required />
+            <small class="field-error" data-error="saoContact"></small>
+          </div>
+          <div class="account-actions"><button class="primary-button" type="submit">Save Contact</button></div>
+        </form>
+      </div>` : ""}
+    <div class="account-actions">
+      ${previewMode
+        ? '<button class="secondary-button" data-action="back-admin">← Back to SAO Admin</button>'
+        : '<button class="primary-button" data-action="view-student">View as Student</button><button class="secondary-button" data-action="reset-data">Reset All Data</button>'}
+    </div>
   </article>`;
   $("#emptyState").classList.add("hidden");
   $("#visibleCount").textContent = "Account";
-}
-
-function renderNotificationPage() {
-  const notifications = relevantNotifications();
-  $("#itemGrid").innerHTML = notifications.length ? notifications.map(note => `
-    <article class="item-card notification-card"><div class="item-body">
-      <div class="item-topline"><strong>${escapeHTML(note.message)}</strong>${note.read ? "" : '<span class="status-badge status-pending">New</span>'}</div>
-      <p class="item-meta">${new Date(note.date).toLocaleString()}</p>
-    </div></article>`).join("") : "";
-  $("#emptyState").classList.toggle("hidden", notifications.length > 0);
-  $("#visibleCount").textContent = `${notifications.length} notification${notifications.length === 1 ? "" : "s"}`;
 }
 
 function renderView(view) {
@@ -743,17 +918,24 @@ function renderView(view) {
   const titles = {
     dashboard: ["Campus Lost & Found", "Find an item or help return something to its owner."],
     items: ["Lost & Found Items", "Browse, search, and filter campus item reports."],
-    notifications: ["Notifications", "Updates about reports and requests."],
     account: ["My Account", "Manage your account and portal data."]
   };
+  const studentTitles = {
+    dashboard: ["Campus Lost & Found", "Browse missing and found items as a student."],
+    items: ["Find Lost & Found Items", "Search campus reports and submit a claim or found-it request."],
+    account: ["My Account", "Preview your student account information."]
+  };
   const [title, subtitle] = titles[view] || titles.dashboard;
-  $("#sectionTitle").textContent = title;
-  $("#sectionSubtitle").textContent = subtitle;
+  const [displayTitle, displaySubtitle] = previewMode
+    ? (studentTitles[view] || studentTitles.dashboard)
+    : [title, subtitle];
+  $("#sectionTitle").textContent = displayTitle;
+  $("#sectionSubtitle").textContent = displaySubtitle;
   $("#filterBar").classList.toggle("hidden", view !== "dashboard" && view !== "items");
-  renderStats();
+  $("#statsGrid").classList.toggle("hidden", previewMode || (view !== "dashboard" && view !== "items"));
+  syncActiveStatCard();
 
   if (view === "account") renderAccount();
-  else if (view === "notifications") renderNotificationPage();
   else renderItems();
   $("#sidebar").classList.remove("open");
 }
@@ -763,10 +945,22 @@ function searchItems() {
 }
 
 function filterByType() {
+  if ($("#statusFilter").value !== "Resolved") $("#statusFilter").value = "All";
+  syncActiveStatCard();
   renderItems();
 }
 
 function filterByStatus() {
+  syncActiveStatCard();
+  renderItems();
+}
+
+function filterFromStat(filter) {
+  activeStatFilter = filter;
+  $("#searchInput").value = "";
+  $("#typeFilter").value = filter === "Lost" || filter === "Found" ? filter : "All";
+  $("#statusFilter").value = filter === "Claimed" ? "Resolved" : "All";
+  renderView("items");
   renderItems();
 }
 
@@ -786,6 +980,7 @@ function toggleNotifications() {
 function resetData() {
   if (!confirm("Reset all portal data? This removes saved accounts, reports, requests and notifications from this browser.")) return;
   state = { users: [], items: [], requests: [], notifications: [], currentUser: null };
+  activeStatFilter = "All";
   saveData();
   localStorage.removeItem(SESSION_KEY);
   updateUserInterface();
@@ -794,11 +989,36 @@ function resetData() {
 }
 
 function bindEvents() {
-  $("#landingPage").addEventListener("click", event => {
-    const authButton = event.target.closest("[data-landing-auth]");
-    if (authButton) renderAuthForm(authButton.dataset.landingAuth, "", "#landingAuth");
+  $("#statsGrid").addEventListener("click", event => {
+    const card = event.target.closest("[data-stat-filter]");
+    if (card) filterFromStat(card.dataset.statFilter);
   });
-  $("#guestBtn").addEventListener("click", showPortal);
+  $("#statsGrid").addEventListener("keydown", event => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-stat-filter]")) {
+      event.preventDefault();
+      filterFromStat(event.target.dataset.statFilter);
+    }
+  });
+  $("#viewStudentBtn").addEventListener("click", () => showPortal(true));
+  $("#landingSearchInput").addEventListener("input", renderLandingItems);
+  $("#lightboxClose").addEventListener("click", closeImageLightbox);
+  $("#imageLightbox").addEventListener("click", event => {
+    if (event.target.id === "imageLightbox") closeImageLightbox();
+  });
+  $("#adminBrand").addEventListener("click", event => {
+    event.preventDefault();
+    showLanding();
+  });
+  const landingItemGrid = $("#landingItemGrid");
+  $("#landingScrollLeft").addEventListener("click", () => {
+    landingItemGrid.scrollBy({ left: -360, behavior: "smooth" });
+  });
+  $("#landingScrollRight").addEventListener("click", () => {
+    landingItemGrid.scrollBy({ left: 360, behavior: "smooth" });
+  });
+  landingItemGrid.addEventListener("scroll", updateLandingScrollButtons);
+  window.addEventListener("resize", updateLandingScrollButtons);
+  requestAnimationFrame(updateLandingScrollButtons);
   $("#reportBtn").addEventListener("click", () => openReportForm());
   $("#sampleBtn").addEventListener("click", loadSampleData);
   $("#logoutBtn").addEventListener("click", logoutUser);
@@ -839,10 +1059,25 @@ function bindEvents() {
     else if (itemCard) openItemForm(itemCard.dataset.itemId);
     else if (event.target.closest("[data-auth-mode]")) renderAuthForm(event.target.closest("[data-auth-mode]").dataset.authMode);
     else if (event.target.closest("[data-action='reset-data']")) resetData();
+    else if (event.target.closest("[data-action='view-student']")) showPortal(true);
+    else if (event.target.closest("[data-action='back-admin']")) {
+      previewMode = false;
+      state.currentUser = ensureSaoAdmin();
+      saveSession();
+      updateUserInterface();
+      showPortal(false);
+      showToast("Returned to SAO Admin view.");
+    }
   });
-  $("#landingAuth").addEventListener("click", event => {
-    const tab = event.target.closest("[data-auth-mode][data-landing='true']");
-    if (tab) renderAuthForm(tab.dataset.authMode, "", "#landingAuth");
+  $("#landingItemGrid").addEventListener("click", event => {
+    const itemCard = event.target.closest("[data-item-id]");
+    if (itemCard) openItemForm(itemCard.dataset.itemId);
+  });
+  $("#landingItemGrid").addEventListener("keydown", event => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-item-id]")) {
+      event.preventDefault();
+      openItemForm(event.target.dataset.itemId);
+    }
   });
   $("#itemGrid").addEventListener("keydown", event => {
     if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-item-id]")) {
@@ -906,10 +1141,16 @@ function bindEvents() {
     }
   });
   $("#modalBody").addEventListener("blur", event => {
-    if (event.target.id === "itemContact") validateContact();
     if (event.target.id === "requestContact") validateContact("requestContact", "requestContact");
   }, true);
   $("#modalBody").addEventListener("click", event => {
+    const expandableImage = event.target.closest("[data-expandable-image]");
+    if (expandableImage) {
+      $("#lightboxImage").src = expandableImage.src;
+      $("#lightboxImage").alt = expandableImage.alt;
+      $("#imageLightbox").classList.remove("hidden");
+      return;
+    }
     const approveButton = event.target.closest("[data-approve]");
     const rejectButton = event.target.closest("[data-reject]");
     if (approveButton) {
@@ -929,9 +1170,14 @@ function bindEvents() {
     }
     if (target.dataset.action === "back-to-item") openItemForm(activeItemId);
     if (target.dataset.action === "delete-item") deleteItem(target.dataset.itemId);
+    if (target.dataset.action === "mark-item-found") markItemFound(target.dataset.itemId);
     if (target.dataset.action === "go-account") {
       closeModal();
       renderView("account");
+    }
+    if (target.dataset.action === "open-admin") {
+      closeModal();
+      showPortal();
     }
     if (target.dataset.action === "reset-data") resetData();
   });
@@ -940,14 +1186,19 @@ function bindEvents() {
     else if (event.target.id === "loginForm") loginUser(event);
     else if (event.target.id === "reportForm") addItem(event);
     else if (event.target.id === "claimForm") submitClaim(event);
+    else if (event.target.id === "saoContactForm") saveSaoContact(event);
   });
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") closeModal();
+    if (event.key === "Escape") {
+      if (!$("#imageLightbox").classList.contains("hidden")) closeImageLightbox();
+      else closeModal();
+    }
   });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   loadFromStorage();
+  updateSaoContactDisplay();
   if (localStorage.getItem(THEME_KEY) === "light") document.body.classList.add("light");
   bindEvents();
   updateUserInterface();

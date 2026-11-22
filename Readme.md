@@ -6,7 +6,7 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 
 ## Features
 
-- **Account System** – Register, log in, and log out using student or teacher accounts.
+- **SAO Admin System** – The portal is operated by an authorized SAO administrator account.
 - **Report Items** – Post lost or found items with descriptions, categories, locations, dates, photos, and contact details.
 - **Search & Filter** – Quickly find items using keywords and Lost/Found or Claimed/Unclaimed filters.
 - **Claim Requests** – Submit proof of ownership for found items or report when you've found someone's lost item.
@@ -19,8 +19,8 @@ Instead of relying on scattered social media posts or physical logbooks, users c
 
 | User | Purpose |
 |---|---|
-| Students | Report, search, and claim lost belongings. |
-| Teachers | Report items found in classrooms or offices and review requests. |
+| SAO Administrators | Enter lost or found records, verify reports, and manage recovery status. |
+| Campus visitors | View missing items on the public landing page. |
 
 ## 🛠️ Built With
 

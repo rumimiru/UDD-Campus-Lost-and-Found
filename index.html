@@ -15,46 +15,62 @@
     <header class="landing-header">
       <a class="landing-brand" href="#landingHome" aria-label="UDD home"><img class="brand-logo" src="assets/UDD_LOGO.png" alt="" /><span>UDD</span></a>
       <nav class="landing-nav" aria-label="Landing navigation">
-        <a href="#about">About</a>
-        <a href="#contact">Contact</a>
+        <a href="#missingItems">Missing Items</a>
+        <a href="#landingStats">Statistics</a>
       </nav>
     </header>
     <main class="landing-main" id="landingHome">
       <section class="landing-hero">
         <span class="eyebrow">Universidad De Dagupan</span>
-        <h1>Lost something?<br><span>Find your way back to it.</span></h1>
-        <p>Report lost and found items, connect with their owners, and help campus belongings find their way home.</p>
+        <h1>Campus Lost &amp; Found<br><span>Item Recovery Portal</span></h1>
+        <p>View the latest missing items reported and verified by SAO.</p>
         <div class="landing-actions">
-          <button type="button" class="primary-button" data-landing-auth="login">Log in</button>
-          <button type="button" class="secondary-button" data-landing-auth="register">Create an account</button>
+          <button type="button" class="primary-button" id="viewStudentBtn">View as Student</button>
         </div>
-        <button type="button" class="guest-link" id="guestBtn">Continue as a guest <span>→</span></button>
-        <div class="landing-auth hidden" id="landingAuth"></div>
+      </section>
+      <section class="landing-missing" id="missingItems">
+        <div class="landing-section-heading">
+          <div><span class="eyebrow">CURRENTLY MISSING</span><h2>Lost items</h2></div>
+          <label class="landing-search" aria-label="Search missing items">
+            <span>⌕</span>
+            <input id="landingSearchInput" type="search" placeholder="Search missing items..." />
+          </label>
+        </div>
+        <div class="landing-carousel">
+          <button type="button" class="landing-scroll-button landing-scroll-left" id="landingScrollLeft" aria-label="Scroll left">‹</button>
+          <div class="landing-item-grid" id="landingItemGrid"></div>
+          <button type="button" class="landing-scroll-button landing-scroll-right" id="landingScrollRight" aria-label="Scroll right">›</button>
+        </div>
+      </section>
+      <section class="landing-stats" id="landingStats" aria-label="Portal statistics">
+        <article><span>All reports</span><strong id="landingTotal">0</strong></article>
+        <article><span>Lost items</span><strong id="landingLost">0</strong></article>
+        <article><span>Found items</span><strong id="landingFound">0</strong></article>
+        <article><span>Resolved</span><strong id="landingResolved">0</strong></article>
       </section>
       <section class="landing-info" id="about">
-        <div><span class="info-icon"><img src="assets/magnifying-glass.png" alt="" /></span><strong>Search reports</strong><p>Browse campus reports and filter by Lost or Found.</p></div>
-        <div><span class="info-icon">↗</span><strong>Help return items</strong><p>Send a claim or found-it request to the original poster.</p></div>
-        <div id="contact"><span class="info-icon">✉</span><strong>Campus support</strong><p>For portal help, contact your campus Lost &amp; Found office.</p></div>
+        <div><span class="info-icon"><img src="assets/magnifying-glass.png" alt="" /></span><strong>Review reports</strong><p>SAO manages item information and verification records.</p></div>
+        <div><span class="info-icon">↗</span><strong>Record recovery</strong><p>Update item status when belongings are successfully returned.</p></div>
+        <div id="contact"><span class="info-icon">✉</span><strong>Campus support</strong><p>Use the SAO admin account for authorized portal operations.</p></div>
       </section>
     </main>
-    <footer class="landing-footer">UDD · Campus Lost and Found &amp; Item Claim Portal</footer>
+    <footer class="landing-footer">UDD · Campus Lost and Found &amp; Item Claim Portal · SAO Contact: <span id="landingSaoContact">sao@udd.edu.ph</span></footer>
   </div>
 
   <div class="app-shell hidden" id="appShell">
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#" aria-label="UDD home">
+      <a class="brand" id="adminBrand" href="#landingHome" aria-label="UDD home">
         <img class="brand-logo" src="assets/UDD_LOGO.png" alt="" /><span>UDD</span>
       </a>
       <nav class="side-nav" id="navLinks" aria-label="Main navigation">
         <button class="nav-link active" data-view="dashboard"><span class="nav-icon"><img src="assets/home.png" alt="" /></span>Dashboard</button>
         <p class="nav-label">CAMPUS PORTAL</p>
-        <button class="nav-link" data-view="items"><span class="nav-icon">▤</span>Lost &amp; Found Items</button>
-        <button class="nav-link" data-view="notifications"><span class="nav-icon"><img src="assets/notification.png" alt="" /></span>Notifications</button>
-        <p class="nav-label">RESOURCES</p>
-        <button class="nav-link" data-view="account"><span class="nav-icon">♙</span>My Account</button>
+        <button class="nav-link" data-view="items"><span class="nav-icon">▤</span>Lost &amp; Found Records</button>
+        <p class="nav-label">ADMINISTRATION</p>
+        <button class="nav-link" data-view="account"><span class="nav-icon">♙</span>SAO Account</button>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-mini"><div class="avatar" id="sideAvatar">FN</div><div><strong id="sideName">Guest Student</strong><small id="sideRole">Student account</small></div></div>
+        <div class="user-mini"><div class="avatar" id="sideAvatar">SA</div><div><strong id="sideName">SAO Administrator</strong><small id="sideRole">SAO Admin account</small></div></div>
         <button class="text-button" id="logoutBtn">Log out ↗</button>
       </div>
     </aside>
@@ -71,15 +87,15 @@
               <div id="notificationList"></div>
             </div>
           </div>
-          <div class="avatar top-avatar guest-avatar" id="topAvatar" aria-label="Guest profile"><img src="assets/user.png" alt="Guest profile" /></div>
+          <div class="avatar top-avatar" id="topAvatar" aria-label="SAO profile">SA</div>
         </div>
       </header>
 
       <section class="content">
         <div class="welcome-row">
           <div>
-            <h1 id="greeting">Welcome, Guest Student</h1>
-            <span class="role-pill" id="rolePill">Student</span>
+            <h1 id="greeting">Welcome, SAO Administrator</h1>
+            <span class="role-pill" id="rolePill">SAO Admin</span>
             <p class="date-line" id="todayLine"></p>
           </div>
           <div class="term-tools">
@@ -88,10 +104,10 @@
         </div>
 
         <div class="stats-grid" id="statsGrid">
-          <article class="stat-card"><div class="stat-label">TOTAL REPORTS</div><div class="stat-value" id="totalReports">0</div><div class="stat-note">All listed items</div><span class="stat-icon">▤</span></article>
-          <article class="stat-card"><div class="stat-label">LOST ITEMS</div><div class="stat-value" id="lostReports">0</div><div class="stat-note">Looking for owners</div><span class="stat-icon">⌕</span></article>
-          <article class="stat-card"><div class="stat-label">FOUND ITEMS</div><div class="stat-value" id="foundReports">0</div><div class="stat-note">Waiting to be claimed</div><span class="stat-icon">✓</span></article>
-          <article class="stat-card"><div class="stat-label">RESOLVED</div><div class="stat-value" id="resolvedReports">0</div><div class="stat-note">Successfully returned</div><span class="stat-icon">♧</span></article>
+          <article class="stat-card" data-stat-filter="All" tabindex="0" role="button" aria-label="Show all item reports"><div class="stat-label">TOTAL REPORTS</div><div class="stat-value" id="totalReports">0</div><div class="stat-note">All listed items</div><span class="stat-icon">▤</span></article>
+          <article class="stat-card" data-stat-filter="Lost" tabindex="0" role="button" aria-label="Show lost items"><div class="stat-label">LOST ITEMS</div><div class="stat-value" id="lostReports">0</div><div class="stat-note">Looking for owners</div><span class="stat-icon">⌕</span></article>
+          <article class="stat-card" data-stat-filter="Found" tabindex="0" role="button" aria-label="Show found items"><div class="stat-label">FOUND ITEMS</div><div class="stat-value" id="foundReports">0</div><div class="stat-note">Waiting to be claimed</div><span class="stat-icon">✓</span></article>
+          <article class="stat-card" data-stat-filter="Claimed" tabindex="0" role="button" aria-label="Show resolved items"><div class="stat-label">RESOLVED</div><div class="stat-value" id="resolvedReports">0</div><div class="stat-note">Successfully returned</div><span class="stat-icon">♧</span></article>
         </div>
 
         <div class="section-toolbar">
@@ -104,7 +120,7 @@
             <div class="filter-bar" id="filterBar">
               <label class="search-box"><span><img src="assets/magnifying-glass.png" alt="" /></span><input id="searchInput" type="search" placeholder="Search item, category, or location..." /></label>
               <select id="typeFilter" aria-label="Filter by type"><option value="All">All items</option><option value="Lost">Lost</option><option value="Found">Found</option></select>
-              <select id="statusFilter" aria-label="Filter by status"><option value="All">All statuses</option><option value="Unclaimed">Unclaimed</option><option value="Pending">Pending</option><option value="Claimed">Claimed</option></select>
+              <select id="statusFilter" aria-label="Filter by status"><option value="All">All statuses</option><option value="Unclaimed">Unclaimed</option><option value="Pending">Pending</option><option value="Claimed">Claimed</option><option value="Resolved">Resolved</option></select>
             </div>
             <div class="items-heading"><strong>Recent item reports</strong><span id="visibleCount">0 items</span></div>
             <div class="item-grid" id="itemGrid"></div>
@@ -112,7 +128,7 @@
           </section>
 
         </div>
-        <footer class="page-footer">UDD · Campus Lost and Found &amp; Item Claim Portal <span>Prototype · Week 2</span></footer>
+        <footer class="page-footer"><span>UDD · Campus Lost and Found &amp; Item Claim Portal</span><span>SAO Contact: <strong id="pageSaoContact">sao@udd.edu.ph</strong></span></footer>
       </section>
     </main>
   </div>
@@ -124,6 +140,10 @@
     </section>
   </div>
   <div class="toast hidden" id="toast" role="status"></div>
+  <div class="image-lightbox hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Expanded item photo">
+    <button type="button" class="lightbox-close" id="lightboxClose" aria-label="Close expanded photo">×</button>
+    <img id="lightboxImage" src="" alt="" />
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
